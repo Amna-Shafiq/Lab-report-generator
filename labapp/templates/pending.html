@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Pending cases · {{ lab.APP_NAME }}{% endblock %}
+
+{% macro case_list(cases, title, hint, empty, show_progress) %}
+<section class="worklist">
+  <header>
+    <h2>{{ title }} ({{ cases|length }})</h2>
+    <span class="hint">{{ hint }}</span>
+  </header>
+  {% if cases %}
+    <ul>
+    {% for c in cases %}
+      <li><a href="{{ url_for('case_detail', case_id=c.id) }}">
+        <span class="row-main">
+          <span class="who">{{ c.name }} <span class="muted case-no">Case {{ case_no(c.reg_no, c.visit_no) }}</span></span>
+          <span class="what">{{ c.test_names or '' }}{% if c.consultant %} · {{ c.consultant }}{% endif %}</span>
+        </span>
+        <span class="row-side">
+          {% if show_progress %}
+            {% if c.entered_results >= c.total_results %}
+              <span class="pill pill-done">Ready to verify</span>
+            {% else %}
+              <span class="pill {{ 'pill-part' if c.entered_results }}">{{ c.entered_results }} / {{ c.total_results }}</span>
+            {% endif %}
+          {% else %}
+            <span class="pill pill-done">Verified</span>
+          {% endif %}
+          <span class="when">{{ c.registered_at|local_time }}</span>
+        </span>
+      </a></li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">{{ empty }}</p>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Pending cases</h1>
+    <p class="sub">Every case that still needs results or printing, oldest first.</p>
+  </div>
+</div>
+<div class="stack-lists">
+  {{ case_list(awaiting, 'Awaiting results', 'results entered / needed', 'Nothing waiting for results.', true) }}
+  {{ case_list(to_print, 'Ready to print', 'verified, not printed yet', 'Nothing waiting to print.', false) }}
+</div>
+{% endblock %}

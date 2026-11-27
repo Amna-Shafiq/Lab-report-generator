@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "_macros.html" import search_box %}
+{% block title %}Home · {{ lab.APP_NAME }}{% endblock %}
+
+{% macro progress(c) %}
+  {% if c.entered_results >= c.total_results %}
+    <span class="pill pill-done">Ready to verify</span>
+  {% elif c.entered_results > 0 %}
+    <span class="pill pill-part">{{ c.entered_results }} / {{ c.total_results }}</span>
+  {% else %}
+    <span class="pill">{{ c.entered_results }} / {{ c.total_results }}</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="home">
+  <p class="home-date">{{ today.strftime('%A, %d %B %Y') }}</p>
+
+  {{ search_box() }}
+
+  <div class="quickbar">
+    <a class="button" href="{{ url_for('new_patient') }}">+ New patient</a>
+    <div class="stats">
+      <span class="stat"><strong>{{ today_count }}</strong> case{{ '' if today_count == 1 else 's' }} today</span>
+      <span class="stat stat-await"><strong>{{ awaiting_count }}</strong> awaiting results</span>
+      <span class="stat stat-print"><strong>{{ to_print_count }}</strong> ready to print</span>
+    </div>
+  </div>
+
+  <div class="worklists">
+    <section class="worklist">
+      <header>
+        <h2>Awaiting results <span class="count">{{ awaiting_count }}</span></h2>
+        <span class="hint">oldest first</span>
+      </header>
+      {% if awaiting %}
+        <ul>
+        {% for c in awaiting %}
+          <li><a href="{{ url_for('case_detail', case_id=c.id) }}">
+            <span class="row-main">
+              <span class="who">{{ c.name }}</span>
+              <span class="what">{{ c.test_names or '' }}</span>
+            </span>
+            <span class="row-side">
+              {{ progress(c) }}
+              <span class="when">{{ c.registered_at|short_time }}</span>
+            </span>
+          </a></li>
+        {% endfor %}
+        </ul>
+        {% if awaiting_count > awaiting|length %}
+          <a class="see-all" href="{{ url_for('pending') }}">See all {{ awaiting_count }} →</a>
+        {% endif %}
+      {% else %}
+        <p class="empty">Nothing waiting for results.</p>
+      {% endif %}
+    </section>
+
+    <section class="worklist">
+      <header>
+        <h2>Ready to print <span class="count">{{ to_print_count }}</span></h2>
+        <span class="hint">verified, not printed</span>
+      </header>
+      {% if to_print %}
+        <ul>
+        {% for c in to_print %}
+          <li><a href="{{ url_for('case_detail', case_id=c.id) }}">
+            <span class="row-main">
+              <span class="who">{{ c.name }}</span>
+              <span class="what">{{ c.test_names or '' }}</span>
+            </span>
+            <span class="row-side">
+              <span class="pill pill-done">Verified</span>
+              <span class="when">{{ c.registered_at|short_time }}</span>
+            </span>
+          </a></li>
+        {% endfor %}
+        </ul>
+        {% if to_print_count > to_print|length %}
+          <a class="see-all" href="{{ url_for('pending') }}">See all {{ to_print_count }} →</a>
+        {% endif %}
+      {% else %}
+        <p class="empty">Nothing waiting to print.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

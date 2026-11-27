@@ -1,0 +1,24 @@
+{# Auto-lock: after AUTO_LOCK_MINUTES without mouse/keyboard activity, go to the login screen.
+   While staff are active (e.g. typing results), ping the server at most once a minute so the
+   server-side idle timer does not expire in the middle of data entry. #}
+<script>
+(function () {
+  var limitMs = {{ lab.AUTO_LOCK_MINUTES }} * 60 * 1000;
+  var lockUrl = "{{ url_for('logout') }}?idle=1";
+  var pingUrl = "{{ url_for('keepalive') }}";
+  var timer, lastPing = Date.now();
+  function lock() { window.location.href = lockUrl; }
+  function activity() {
+    clearTimeout(timer);
+    timer = setTimeout(lock, limitMs);
+    if (Date.now() - lastPing > 60000) {
+      lastPing = Date.now();
+      fetch(pingUrl, {credentials: "same-origin", redirect: "manual"}).catch(function () {});
+    }
+  }
+  ["mousemove", "keydown", "click", "scroll", "touchstart"].forEach(function (e) {
+    document.addEventListener(e, activity, {passive: true});
+  });
+  activity();
+})();
+</script>

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import search_box %}
+{% block title %}Search · {{ lab.APP_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Find patient</h1></div></div>
+{{ search_box(q) }}
+
+{% if message %}<div class="notice-box">{{ message }}</div>{% endif %}
+
+{% if results %}
+<section class="worklist results-list">
+  <header>
+    <h2>{{ results|length }} patient{{ '' if results|length == 1 else 's' }} found</h2>
+    <span class="hint">click a patient to open</span>
+  </header>
+  <ul>
+  {% for p in results %}
+    <li><a href="{{ url_for('patient_detail', reg_no=p.reg_no) }}">
+      <span class="row-main">
+        <span class="who">{{ p.name }}</span>
+        <span class="what">{% if p.guardian_name %}{{ p.guardian_name }} · {% endif %}{{ p.dob|age }} / {{ p.sex|sex }}{% if p.phone %} · {{ p.phone }}{% endif %}</span>
+      </span>
+      <span class="row-side">
+        <span class="pill">{{ p.reg_no|reg_no }}</span>
+        {% if p.nic %}<span class="when">NIC {{ p.nic|nic }}</span>{% endif %}
+      </span>
+    </a></li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if q %}
+<p class="not-found">Not the right person? <a class="button" href="{{ url_for('new_patient') }}">+ Register new patient</a></p>
+{% endif %}
+{% endblock %}

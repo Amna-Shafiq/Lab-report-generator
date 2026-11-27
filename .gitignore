@@ -1,0 +1,18 @@
+# Patient data and database files - never commit
+data/
+*.db
+*.db-wal
+*.db-shm
+*.bak
+
+# Build output (rebuild with build.ps1)
+build/
+dist/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local tool settings
+.claude/settings.local.json

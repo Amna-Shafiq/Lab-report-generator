@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Create password · {{ lab.APP_NAME }}{% endblock %}
+{% block content %}
+<div class="auth-card wide-card">
+  <h1>Welcome — create the password</h1>
+  <p class="notice">This password will be needed to open the app. Choose a security question too:
+     its answer is the only way to reset a forgotten password.</p>
+  {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+  <form method="post" class="stack" autocomplete="off">
+    <label>Password (at least 6 characters)
+      <input type="password" name="password" required autofocus></label>
+    <label>Type the password again
+      <input type="password" name="confirm" required></label>
+    <label>Security question
+      <input name="question" value="{{ form.question or '' }}" list="dl-questions" required
+             placeholder="Choose from the list or type your own"></label>
+    <datalist id="dl-questions">{% for q in questions %}<option value="{{ q }}">{% endfor %}</datalist>
+    <label>Answer
+      <input name="answer" value="{{ form.answer or '' }}" required></label>
+    <button type="submit">Create password</button>
+  </form>
+</div>
+{% endblock %}

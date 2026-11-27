@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import test_picker, case_fields %}
+{% block title %}{{ patient.name }} · {{ lab.APP_NAME }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="crumb">Patient</p>
+    <h1>{{ patient.name }}</h1>
+    <p class="sub">Patient # {{ patient.reg_no|reg_no }} · {{ patient.dob|age }}{% if patient.dob_is_estimated %} (estimated){% endif %} / {{ patient.sex|sex }}</p>
+  </div>
+  <div class="head-side">
+    <a class="button big" href="#new-visit">+ New visit</a>
+  </div>
+</div>
+
+<section class="form-card">
+  <h2>Patient details</h2>
+  <dl class="facts plain-facts">
+    <dt>Father / husband</dt><dd>{{ patient.guardian_name or '-' }}</dd>
+    <dt>Date of birth</dt><dd>{{ patient.dob|dmy }}{% if patient.dob_is_estimated %} <span class="muted">(estimated from age)</span>{% endif %}</dd>
+    <dt>Blood group</dt><dd>{{ patient.blood_group or 'Unknown' }}</dd>
+    <dt>NIC</dt><dd>{{ patient.nic|nic or '-' }}</dd>
+    <dt>Phone</dt><dd>{{ patient.phone or '-' }}</dd>
+    <dt>Address</dt><dd>{{ patient.address or '-' }}</dd>
+  </dl>
+</section>
+
+<section class="worklist">
+  <header>
+    <h2>Visits <span class="count">{{ cases|length }}</span></h2>
+    <span class="hint">newest first · click a visit to open it</span>
+  </header>
+  {% if cases %}
+    <ul>
+    {% for c in cases %}
+      <li><a href="{{ url_for('case_detail', case_id=c.id) }}">
+        <span class="row-main">
+          <span class="who">Case {{ case_no(patient.reg_no, c.visit_no) }}</span>
+          <span class="what">{{ c.test_names or '' }}{% if c.consultant %} · {{ c.consultant }}{% endif %}</span>
+        </span>
+        <span class="row-side">
+          <span class="status status-{{ c.status }}">{{ c.status|status_label }}</span>
+          <span class="when">{{ c.registered_at|local_time }}</span>
+        </span>
+      </a></li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty">No visits yet.</p>
+  {% endif %}
+</section>
+
+<section class="form-card" id="new-visit">
+  <h2><span class="num">+</span> Start a new visit — Case {{ case_no(patient.reg_no, next_visit) }}</h2>
+  {% if errors %}<div class="alert">Please correct the fields marked in red.</div>{% endif %}
+  <form method="post" action="{{ url_for('new_case', reg_no=patient.reg_no) }}">
+    <div class="grid">
+      {{ case_fields(form, suggestions, choices) }}
+      {{ test_picker(sections, selected, errors.tests) }}
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="big">Create case {{ next_visit }}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

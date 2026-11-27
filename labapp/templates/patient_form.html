@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_macros.html" import test_picker, case_fields %}
+{% block title %}New patient · {{ lab.APP_NAME }}{% endblock %}
+{% macro err(field) %}{% if errors[field] %}<span class="error">{{ errors[field] }}</span>{% endif %}{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Register new patient</h1>
+    <p class="sub">For a patient who has been here before, search for them on the
+       <a href="{{ url_for('index') }}">Home</a> page instead and start a new visit.</p>
+  </div>
+</div>
+
+{% if duplicate %}
+<div class="alert">
+  <strong>Patient already registered.</strong>
+  NIC {{ duplicate.nic|nic }} belongs to {{ duplicate.name }} (Patient # {{ duplicate.reg_no|reg_no }}).
+  <a href="{{ url_for('patient_detail', reg_no=duplicate.reg_no) }}">Open their record to add a new visit →</a>
+</div>
+{% elif errors %}
+<div class="alert">Please correct the fields marked in red.</div>
+{% endif %}
+
+<form method="post" novalidate>
+  <section class="form-card">
+    <h2><span class="num">1</span> Patient details</h2>
+    <div class="grid">
+      <label>Name *
+        <input name="name" value="{{ form.name }}" required autofocus>{{ err('name') }}</label>
+      <label>Father / husband name
+        <input name="guardian_name" value="{{ form.guardian_name }}"></label>
+
+      <label>Date of birth
+        <input type="date" name="dob" value="{{ form.dob }}">{{ err('dob') }}</label>
+      <label>…or age in years <span class="field-hint">if date of birth is not known</span>
+        <input type="number" name="age_years" min="0" max="130" value="{{ form.age_years }}"></label>
+
+      <label>Sex *
+        <select name="sex" required>
+          <option value="">— choose —</option>
+          {% for code, label in SEXES.items() %}
+            <option value="{{ code }}" {% if form.sex == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>{{ err('sex') }}</label>
+      <label>Blood group
+        <select name="blood_group">
+          <option value="">Unknown</option>
+          {% for b in BLOOD_GROUPS %}
+            <option {% if form.blood_group == b %}selected{% endif %}>{{ b }}</option>
+          {% endfor %}
+        </select>{{ err('blood_group') }}</label>
+
+      <label>NIC
+        <input name="nic" value="{{ form.nic }}" placeholder="35202-1234567-1">{{ err('nic') }}</label>
+      <label>Phone
+        <input name="phone" value="{{ form.phone }}" placeholder="0300-1234567"></label>
+
+      <label class="wide">Address
+        <input name="address" value="{{ form.address }}"></label>
+    </div>
+  </section>
+
+  <section class="form-card">
+    <h2><span class="num">2</span> First visit <span class="muted">(Case 1)</span></h2>
+    <div class="grid">
+      {{ case_fields(form, suggestions, choices) }}
+      {{ test_picker(sections, selected, errors.tests) }}
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <span class="muted">* required</span>
+    <button type="submit" class="big">Register &amp; create case 1</button>
+  </div>
+</form>
+{% endblock %}

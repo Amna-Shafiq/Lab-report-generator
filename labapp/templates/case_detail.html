@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% set number = case_no(patient.reg_no, case.visit_no) %}
+{# Where the case is in the 1-2-3 flow: 1 enter results, 2 verify, 3 print, 4 all done. #}
+{% if case.status == 'cancelled' %}{% set step = 0 %}
+{% elif editable and missing %}{% set step = 1 %}
+{% elif editable %}{% set step = 2 %}
+{% elif case.status == 'verified' %}{% set step = 3 %}
+{% else %}{% set step = 4 %}{% endif %}
+{% block title %}Case {{ number }} · {{ lab.APP_NAME }}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <p class="crumb"><a href="{{ url_for('patient_detail', reg_no=patient.reg_no) }}">{{ patient.name }}</a> › Visit {{ case.visit_no }}</p>
+    <h1>Case {{ number }}</h1>
+    <p class="sub">{{ patient.name }} · {{ patient.dob|age }} / {{ patient.sex|sex }} · Patient # {{ patient.reg_no|reg_no }}</p>
+  </div>
+  <div class="head-side">
+    <span class="status status-{{ case.status }}">{{ case.status|status_label }}</span>
+    <a class="button secondary" href="{{ url_for('report_preview', case_id=case.id) }}" target="_blank">Preview report</a>
+  </div>
+</div>
+
+{% if step %}
+<ol class="steps" aria-label="Progress">
+  {% for n, label in [(1, 'Enter results'), (2, 'Verify'), (3, 'Print')] %}
+    <li class="{{ 'done' if n < step else 'current' if n == step else '' }}">
+      <span class="dot">{{ '✓' if n < step else n }}</span>{{ label }}
+    </li>
+  {% endfor %}
+</ol>
+{% endif %}
+
+<div class="next-step">
+  {% if step == 1 %}
+    <p><strong>Step 1 — enter the results.</strong> Choose a result for each test below and press
+       <strong>Save results</strong>. You can save some results now and come back for the rest later.</p>
+    <p class="muted">{{ missing|length }} result{{ '' if missing|length == 1 else 's' }} still to enter:
+       {{ missing[:6]|join(', ') }}{% if missing|length > 6 %}, …{% endif %}</p>
+  {% elif step == 2 %}
+    <p><strong>Step 2 — verify.</strong> All results are entered. Check them below, then press
+       <strong>Verify case</strong>. After verifying, the results are locked and the report can be printed.</p>
+    <form method="post" action="{{ url_for('verify_case', case_id=case.id) }}"
+          onsubmit="return confirm('Verify this case?\n\nThe results will be locked. To change them afterwards you will need to use Reopen for correction.')">
+      <button type="submit" class="big" title="Verifying locks the results. To change them afterwards, use Reopen for correction.">Verify case</button>
+    </form>
+  {% elif step in (3, 4) %}
+    {% if step == 3 %}
+      <p><strong>Step 3 — print.</strong> Choose who is printing, then press <strong>Print report</strong>.
+         The report opens in a new tab; print it from there.</p>
+    {% else %}
+      <p><strong>Done — the report has been printed.</strong> Press <strong>Reprint report</strong> if another copy is needed.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('print_report', case_id=case.id) }}" target="_blank" class="print-form">
+      <label>Printed by
+        <select name="printed_by" required data-other="printed_by_other" onchange="toggleOther(this)">
+          {% for p in lab.PRINTED_BY_CHOICES %}
+            <option value="{{ p.name }}">{{ p.name }} ({{ p.title }})</option>
+          {% endfor %}
+          {% for name in other_printers %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+          <option value="__other__">Other (type name)…</option>
+        </select>
+      </label>
+      <input name="printed_by_other" placeholder="Type name" autocomplete="off" maxlength="60" hidden>
+      <button type="submit" class="big">{{ 'Reprint report' if prints else 'Print report' }}</button>
+    </form>
+    <form method="post" action="{{ url_for('reopen_case', case_id=case.id) }}" class="reopen"
+          onsubmit="return confirm('Reopen this case to correct a result?\n\nThe case will need to be verified again before it can be printed.')">
+      Found a mistake? <button type="submit" class="link">Reopen for correction</button>
+    </form>
+  {% else %}
+    <p><strong>This case is cancelled.</strong></p>
+  {% endif %}
+</div>
+
+<details class="case-info">
+  <summary>Visit details</summary>
+  <dl class="facts">
+    <dt>Registered</dt><dd>{{ case.registered_at|local_time }}</dd>
+    <dt>Registration location</dt><dd>{{ case.registration_location or '-' }}</dd>
+    <dt>Destination location</dt><dd>{{ case.destination_location or '-' }}</dd>
+    <dt>Reference</dt><dd>{{ case.reference or 'SELF' }}</dd>
+    <dt>Consultant</dt><dd>{{ case.consultant or 'SELF' }}</dd>
+  </dl>
+</details>
+
+<h2>Results</h2>
+{% if errors %}<div class="alert">Some results need correcting — see the red messages below.</div>{% endif %}
+{% if editable %}
+  <p class="hint-line">Abnormal results are printed in <strong>bold</strong>. Leave <em>Abnormal?</em> on
+     <em>Automatic</em> and the app decides from the normal value.</p>
+{% else %}
+  <p class="hint-line">Results are locked because the case is {{ case.status|status_label|lower }}.</p>
+{% endif %}
+<form method="post" action="{{ url_for('save_results', case_id=case.id) }}">
+  <fieldset class="plain" {% if not editable %}disabled{% endif %}>
+  {# Pressing Enter in a field uses the form's FIRST submit button. This invisible
+     Save comes first, so Enter saves instead of triggering a Remove button. #}
+  {% if editable %}<button type="submit" class="enter-saves" tabindex="-1" aria-hidden="true">Save</button>{% endif %}
+  {% for ot in ordered %}
+    {% set ct = ot.case_test %}
+    {% if loop.first or ct.section != ordered[loop.index0 - 1].case_test.section %}
+      <h3 class="section-title">{{ ct.section }}</h3>
+    {% endif %}
+    <div class="test-card">
+      <div class="test-card-head">
+        <div>
+          <span class="test-name">{{ ct.test_name }}</span>
+          {% if ct.is_sensitive %}<span class="tag sensitive">Sensitive</span>{% endif %}
+          {% if editable and ordered|length > 1 %}
+            {# Submits the whole results form to the remove URL, so typed values are kept. #}
+            {% set msg = 'Remove ' ~ ct.test_name ~ ' from this case?\n\nAny result entered for it will be deleted. This cannot be undone.' %}
+            <button type="submit" class="link-danger"
+                    formaction="{{ url_for('remove_test', case_id=case.id, case_test_id=ct.id) }}"
+                    onclick='return confirm({{ msg|tojson }})'>Remove</button>
+          {% endif %}
+        </div>
+        {% if ot.methods %}
+          <label class="method">Method
+            <select name="method-{{ ct.id }}">
+              {% set chosen = form.get('method-%d' % ct.id, ct.method) %}
+              {% for m in ot.methods %}<option {% if m == chosen %}selected{% endif %}>{{ m }}</option>{% endfor %}
+            </select>
+          </label>
+        {% endif %}
+      </div>
+      <table class="results">
+        <thead><tr><th>Test</th><th>Normal value</th><th>Unit</th><th>Result</th><th>Abnormal?</th></tr></thead>
+        <tbody>
+        {% for p in ot.parameters %}
+          {% set pid = p.row.id %}
+          {% set vkey = 'value-%d-%d' % (ct.id, pid) %}
+          {% set fkey = 'flag-%d-%d' % (ct.id, pid) %}
+          {% set value = form.get(vkey, p.result.value if p.result else '') %}
+          {% set saved_flag = ('abnormal' if p.result.is_abnormal else 'normal') if (p.result and p.result.abnormal_manual) else 'auto' %}
+          {% set flag = form.get(fkey, saved_flag) %}
+          {% if p.row.group_name and (loop.first or p.row.group_name != ot.parameters[loop.index0 - 1].row.group_name) %}
+            <tr class="group-row"><td colspan="5">{{ p.row.group_name }}</td></tr>
+          {% endif %}
+          <tr class="{% if p.result and p.result.is_abnormal %}abnormal{% endif %}">
+            <td>{{ p.row.name }}{% if not p.row.is_required %} <span class="muted">(optional)</span>{% endif %}</td>
+            <td>{{ p.row.normal_text or '' }}</td>
+            <td>{{ p.row.unit or '' }}</td>
+            <td>
+              {% if p.row.input_type == 'dropdown' %}
+                <select name="{{ vkey }}">
+                  <option value="">— choose —</option>
+                  {% for o in p.options %}
+                    <option {% if o.value == value %}selected{% endif %}>{{ o.value }}</option>
+                  {% endfor %}
+                </select>
+              {% else %}
+                <input name="{{ vkey }}" value="{{ value }}"
+                       {% if p.row.input_type == 'number' %}inputmode="decimal"{% endif %}>
+              {% endif %}
+              {% if errors[pid] %}<span class="error">{{ errors[pid] }}</span>{% endif %}
+            </td>
+            <td>
+              <select name="{{ fkey }}">
+                {% for f, label in [('auto', 'Automatic'), ('normal', 'Normal'), ('abnormal', 'Abnormal')] %}
+                  <option value="{{ f }}" {% if f == flag %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              {% if p.result %}
+                <span class="flag-now {{ 'is-abnormal' if p.result.is_abnormal }}">{{ 'Abnormal' if p.result.is_abnormal else 'Normal' }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+  {% if editable %}
+    <div class="savebar">
+      <span>Press <strong>Save results</strong> after choosing results.</span>
+      <button type="submit" class="big">Save results</button>
+    </div>
+  {% endif %}
+  </fieldset>
+</form>
+
+{% if prints %}
+<h2>Print history</h2>
+<table class="list">
+  <thead><tr><th>Printed</th><th>Printed by</th><th>Type</th><th>PDF</th></tr></thead>
+  <tbody>
+  {% for p in prints %}
+    <tr>
+      <td>{{ p.printed_at|local_time }}</td>
+      <td>{{ p.printed_by or '' }}</td>
+      <td>{{ 'Reprint' if p.is_reprint else 'First print' }}
+          {% if p.verification_no != case.verify_count %}<span class="muted">(earlier version)</span>{% endif %}</td>
+      <td><a href="{{ url_for('print_pdf', print_id=p.id) }}" target="_blank">Open</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

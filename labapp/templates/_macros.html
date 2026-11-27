@@ -1,0 +1,67 @@
+{# The big scan/search box (home page and search results). Focused on load so a
+   USB barcode scanner can be used straight away. #}
+{% macro search_box(q='') %}
+  <form class="home-search" method="get" action="{{ url_for('search') }}">
+    <svg class="home-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+    </svg>
+    <input name="q" value="{{ q }}" autofocus autocomplete="off" onfocus="this.select()"
+           placeholder="Scan barcode, or type Patient #, Case #, NIC, name or phone"
+           aria-label="Search patients">
+    <button type="submit">Find</button>
+  </form>
+{% endmacro %}
+
+{# Dropdown of known values + "Other", which reveals a text box (see toggleOther in base.html).
+   On a re-shown form, a value not in the list comes back as Other + its text. #}
+{% macro choice_field(field, label, options, form, default, blank_label) %}
+  {% set raw = form[field] %}
+  {% set chosen = default if raw is undefined else raw %}
+  {% set other_text = form[field ~ '_other'] or '' %}
+  {% if chosen and chosen != '__other__' and chosen not in options %}
+    {% set other_text = chosen %}{% set chosen = '__other__' %}
+  {% endif %}
+  <label>{{ label }}
+    <select name="{{ field }}" data-other="{{ field }}_other" onchange="toggleOther(this)">
+      <option value="" {{ 'selected' if not chosen }}>{{ blank_label }}</option>
+      {% for o in options %}<option {{ 'selected' if o == chosen }}>{{ o }}</option>{% endfor %}
+      <option value="__other__" {{ 'selected' if chosen == '__other__' }}>Other (type below)…</option>
+    </select>
+    <input name="{{ field }}_other" value="{{ other_text }}" placeholder="Type {{ label|lower }}"
+           autocomplete="off" {{ '' if chosen == '__other__' else 'hidden' }}>
+  </label>
+{% endmacro %}
+
+{# Case fields: locations and consultant are dropdowns with Other; reference is free text with suggestions. #}
+{% macro case_fields(form, suggestions, choices) %}
+  {{ choice_field('registration_location', 'Registration location', choices.registration_location,
+                  form, lab.DEFAULT_LOCATION, '—') }}
+  {{ choice_field('destination_location', 'Destination location', choices.destination_location,
+                  form, lab.DEFAULT_LOCATION, '—') }}
+  <label>Reference
+    <input name="reference" value="{{ form.reference or '' }}" list="dl-reference"
+           autocomplete="off" placeholder="SELF">
+    <datalist id="dl-reference">
+      {% for v in suggestions.reference %}<option value="{{ v }}">{% endfor %}
+    </datalist>
+  </label>
+  {{ choice_field('consultant', 'Consultant', choices.consultant, form, '', 'SELF') }}
+{% endmacro %}
+
+{% macro test_picker(sections, selected, error) %}
+<fieldset class="tests wide">
+  <legend>Tests *</legend>
+  {% for section, tests in sections.items() %}
+    <div class="test-section">
+      <h3>{{ section }}</h3>
+      {% for t in tests %}
+        <label class="check">
+          <input type="checkbox" name="test_id" value="{{ t.id }}" {% if t.id in selected %}checked{% endif %}>
+          {{ t.name }}
+        </label>
+      {% endfor %}
+    </div>
+  {% endfor %}
+  {% if error %}<span class="error">{{ error }}</span>{% endif %}
+</fieldset>
+{% endmacro %}
